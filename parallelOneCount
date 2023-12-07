@@ -1,0 +1,107 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <time.h>
+
+typedef struct {
+    int threadID;
+    int startIDX;
+    int lastIDX;
+} threadArg;
+
+int globalCounter;
+int *arr;
+int size;
+int threadNumber;
+
+void fillArray() {
+    if (arr == NULL) {
+        printf("Global array not found \n");
+        exit(EXIT_FAILURE);
+    }
+    srand(time(NULL));
+    for (int i = 0; i < size; i++) {
+        arr[i] = rand() % 6;
+    }
+}
+
+void* countInRange(void* args) {
+    threadArg* thread = (threadArg*)args;
+    if (args == NULL) {
+        printf("Invalid thread arguments\n");
+        pthread_exit(NULL);
+    }
+    int start = thread->startIDX;
+    int end = thread->lastIDX;
+    int localCounter = 0;
+
+    for (int i = start; i < end; i++) {
+        if (arr[i] == 1) {
+            localCounter++;
+        }
+    }
+
+    pthread_exit((void*)localCounter);
+}
+
+int parallelCount() {
+    globalCounter = 0;
+    threadArg* threads[threadNumber];
+    pthread_t thread[threadNumber];
+
+    int range = size / threadNumber;
+
+    for (int i = 0; i < threadNumber; i++) {
+        threads[i] = (threadArg*)malloc(sizeof(threadArg));
+        if (threads[i] == NULL) {
+            exit(EXIT_FAILURE);
+        }
+        threads[i]->threadID = i;
+        threads[i]->startIDX = i * range;
+        threads[i]->lastIDX = (i == threadNumber - 1) ? size : (i + 1) * range;
+        pthread_create(&thread[i], NULL, countInRange, (void*)threads[i]);
+    }
+
+    for (int i = 0; i < threadNumber; i++) {
+        void* localCounter;
+        pthread_join(thread[i], &localCounter);
+        globalCounter += (int)localCounter;
+        free(threads[i]);
+    }
+
+    return globalCounter;
+}
+
+int count1s() {
+    int localcount = 0;
+    for (int i = 0; i < size; i++) {
+        if (arr[i] == 1) {
+            localcount++;
+        }
+    }
+    return localcount;
+}
+
+int main() {
+    size = 1000000000; // 1,000, 1,000,000, and 1,000,000,000
+    threadNumber = 4; // 1, 2, 4, and 32.
+    arr = (int*)malloc(size * sizeof(int));
+    if (arr == NULL) {
+        printf("Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    fillArray();
+
+    int testResult = count1s();
+    printf("SEQUENTIAL count of 1's = %d\n\n", testResult);
+    clock_t t;
+    t = clock();
+    int result = parallelCount();
+    t = clock() - t;
+    double time_taken = ((double)t) / CLOCKS_PER_SEC;
+    printf("PARALLEL count of 1's = %d\n\n", result);
+    printf("time taken = %f\n\n", time_taken);
+
+    free(arr);
+    return 0;
+}
