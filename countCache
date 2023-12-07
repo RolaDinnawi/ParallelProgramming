@@ -1,0 +1,62 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <time.h>
+
+#define NUM_THREADS 32 // 1, 2, 16
+
+typedef struct {
+    int privateCount;
+    char padding[64];
+} threadArgs;
+
+threadArgs* privateCounts;
+
+void *threadFunction(void *arg) {
+    int threadId = *((int *)arg);
+    privateCounts[threadId].privateCount++;
+    return NULL;
+}
+
+int main() {
+    clock_t t;
+    t = clock();
+
+    pthread_t threads[NUM_THREADS];
+    int threadIds[NUM_THREADS];
+
+    privateCounts = (threadArgs*)malloc(NUM_THREADS * sizeof(threadArgs));
+    if (privateCounts == NULL) {
+        perror("memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        threadIds[i] = i;
+        if (pthread_create(&threads[i], NULL, threadFunction, (void *)&threadIds[i]) != 0) {
+            perror("creation failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            perror("joining flopped");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    printf("| Thread ID | Private Count |\n");
+    printf("|------------|---------------|\n");
+    for (int i = 0; i < NUM_THREADS; i++) {
+        printf("| %9d | %13d |\n", i, privateCounts[i].privateCount);
+    }
+
+    free(privateCounts);
+
+    t = clock() - t;
+    double time_taken = ((double)t) / CLOCKS_PER_SEC;
+
+    printf("fun() took %f seconds to execute \n", time_taken);
+    return 0;
+}
