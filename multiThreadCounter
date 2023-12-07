@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <time.h>
+
+#define threadnum 32 // try for 1, 2, 16, 32
+int counter = 0;
+pthread_mutex_t mutex;
+
+void *incrementCounter(void *threadID) {
+    for (int i = 0; i < 1000000; i++) { //1000, 100000, 1000000000
+        pthread_mutex_lock(&mutex);
+        counter++;
+        pthread_mutex_unlock(&mutex);
+    }
+    pthread_exit(NULL);
+}
+
+int main() {
+    clock_t t; 
+    t = clock();
+    pthread_t threads[threadnum];
+    pthread_mutex_init(&mutex, NULL);
+
+    for (int t = 0; t < threadnum; t++) {
+        int returned = pthread_create(&threads[t], NULL, incrementCounter, (void *)t);
+        if (returned) {
+            printf("error: pthread_create() code is %d\n", returned);
+            return 1;
+        }
+    }
+
+    for (int t = 0; t < threadnum; t++) {
+        pthread_join(threads[t], NULL);
+    }
+    pthread_mutex_destroy(&mutex);
+    printf("Final Counter Value: %d\n", counter);
+
+    t = clock() - t; 
+    double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
+ 
+    printf("time taken = %f\n", time_taken); 
+    return 0;
+}
